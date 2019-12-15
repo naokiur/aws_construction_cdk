@@ -1,8 +1,6 @@
-package com.myorg;
+package jp.ne.naokiur;
 
 import software.amazon.awscdk.core.App;
-
-import java.util.Arrays;
 
 public class StepFunctionsStacksApp {
     public static void main(final String[] args) {
