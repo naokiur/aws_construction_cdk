@@ -1,16 +1,18 @@
 package jp.ne.naokiur;
 
 import software.amazon.awscdk.core.Construct;
+import software.amazon.awscdk.core.Duration;
 import software.amazon.awscdk.core.Stack;
 import software.amazon.awscdk.core.StackProps;
 import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
-import software.amazon.awscdk.services.stepfunctions.Chain;
-import software.amazon.awscdk.services.stepfunctions.Parallel;
-import software.amazon.awscdk.services.stepfunctions.StateMachine;
-import software.amazon.awscdk.services.stepfunctions.Task;
+import software.amazon.awscdk.services.stepfunctions.*;
 import software.amazon.awscdk.services.stepfunctions.tasks.InvokeFunction;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class StepFunctionsStacksStack extends Stack {
     private Function resultFunction;
@@ -28,7 +30,104 @@ public class StepFunctionsStacksStack extends Stack {
                 .build();
 
         createStateMachinePatternErrorInParallel();
+        createStateMachinePatternNested();
         createStateMachinePatternErrorByLambda();
+    }
+
+    private void createStateMachinePatternNested() {
+        final Function errorHandleFunction = Function.Builder.create(this, "NestedErrorHandleFunction")
+                .runtime(Runtime.PYTHON_3_6)
+                .code(Code.fromAsset("lambda"))
+                .handler("error_handle.lambda_handler")
+                .build();
+
+        final Function errorFunction = Function.Builder.create(this, "NestedErrorFunction")
+                .runtime(Runtime.PYTHON_3_6)
+                .code(Code.fromAsset("lambda"))
+                .handler("error.lambda_handler")
+                .build();
+
+        final Function successFunction = Function.Builder.create(this, "NestedSuccessFunction")
+                .runtime(Runtime.PYTHON_3_6)
+                .code(Code.fromAsset("lambda"))
+                .handler("success.lambda_handler")
+                .build();
+
+        final Task errorTask = Task.Builder.create(this, "NestedErrorTask")
+                .task(InvokeFunction.Builder.create(errorFunction).build())
+                .build()
+                .addRetry(
+                        RetryProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .interval(Duration.millis(1000))
+                                .maxAttempts(2)
+                                .build()
+                );
+
+        final Task errorHandle = Task.Builder.create(this, "ErrorHandleTask")
+                .task(InvokeFunction.Builder.create(errorHandleFunction).build())
+                .build();
+
+        final Fail errorFailTask = Fail.Builder.create(this, "errorFailTask")
+                .build();
+
+        final Task successTask = Task.Builder.create(this, "NestedSuccessTask")
+                .task(InvokeFunction.Builder.create(successFunction).build())
+                .build()
+                .addRetry(
+                        RetryProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .interval(Duration.millis(1000))
+                                .maxAttempts(2)
+                                .build()
+                );
+
+        final Task successHandle = Task.Builder.create(this, "SuccessHandleTask")
+                .task(InvokeFunction.Builder.create(errorHandleFunction).build())
+                .build();
+
+        final Fail successFailTask = Fail.Builder.create(this, "successFailTask")
+                .build();
+
+        final Task resultTask = Task.Builder.create(this, "NestedResultTask")
+                .task(InvokeFunction.Builder.create(this.resultFunction).build())
+                .build()
+                .addRetry(
+                        RetryProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .interval(Duration.millis(1000))
+                                .maxAttempts(2)
+                                .build()
+                );
+
+        final Parallel parallelError = Parallel.Builder.create(this, "NestedParallelError")
+                .build()
+                .branch(errorTask)
+                .addCatch(
+                        errorHandle.next(errorFailTask),
+                        CatchProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .build()
+                );
+
+        final Parallel parallelSuccess = Parallel.Builder.create(this, "NestedParallelSuccess")
+                .build()
+                .branch(successTask)
+                .addCatch(
+                        successHandle.next(successFailTask),
+                        CatchProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .build()
+                );
+
+        final Parallel parallelTask = Parallel.Builder.create(this, "NestedParallelTask")
+                .build()
+                .branch(parallelSuccess)
+                .branch(parallelError);
+
+        final StateMachine machine = StateMachine.Builder.create(this, "PatternNested")
+                .definition(parallelTask.next(resultTask))
+                .build();
     }
 
     private void createStateMachinePatternErrorInParallel() {
@@ -52,15 +151,20 @@ public class StepFunctionsStacksStack extends Stack {
                 .task(InvokeFunction.Builder.create(successFunction).build())
                 .build();
 
+        final Task resultTask = Task.Builder.create(this, "ErrorInParallelResultTask")
+                .task(InvokeFunction.Builder.create(this.resultFunction).build())
+                .build();
 
         final Parallel parallelTask = Parallel.Builder.create(this, "ErrorInParallelParallelTask")
                 .build()
                 .branch(successTask)
-                .branch(errorTask);
-
-        final Task resultTask = Task.Builder.create(this, "ErrorInParallelResultTask")
-                .task(InvokeFunction.Builder.create(this.resultFunction).build())
-                .build();
+                .branch(errorTask)
+                .addCatch(
+                        resultTask,
+                        CatchProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .build()
+                );
 
         final StateMachine machine = StateMachine.Builder.create(this, "SimpleStateMachine")
                 .definition(parallelTask.next(resultTask))
