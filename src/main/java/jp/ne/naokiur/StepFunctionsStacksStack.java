@@ -89,6 +89,25 @@ public class StepFunctionsStacksStack extends Stack {
         final Fail successFailTask = Fail.Builder.create(this, "successFailTask")
                 .build();
 
+        final Task successTask2 = Task.Builder.create(this, "NestedSuccessTask2")
+                .task(InvokeFunction.Builder.create(successFunction).build())
+                .build()
+                .addRetry(
+                        RetryProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .interval(Duration.millis(1000))
+                                .maxAttempts(2)
+                                .build()
+                );
+
+        final Task successHandle2 = Task.Builder.create(this, "SuccessHandleTask2")
+                .task(InvokeFunction.Builder.create(errorHandleFunction).build())
+                .build();
+
+        final Fail successFailTask2 = Fail.Builder.create(this, "successFailTask2")
+                .build();
+
+
         final Task resultTask = Task.Builder.create(this, "NestedResultTask")
                 .task(InvokeFunction.Builder.create(this.resultFunction).build())
                 .build()
@@ -120,10 +139,21 @@ public class StepFunctionsStacksStack extends Stack {
                                 .build()
                 );
 
+        final Parallel parallelSuccess2 = Parallel.Builder.create(this, "NestedParallelSuccess2")
+                .build()
+                .branch(successTask2)
+                .addCatch(
+                        successHandle2.next(successFailTask2),
+                        CatchProps.builder()
+                                .errors(new ArrayList<>(Collections.singletonList("States.ALL")))
+                                .build()
+                );
+
         final Parallel parallelTask = Parallel.Builder.create(this, "NestedParallelTask")
                 .build()
                 .branch(parallelSuccess)
-                .branch(parallelError);
+                .branch(parallelError)
+                .branch(parallelSuccess2);
 
         final StateMachine machine = StateMachine.Builder.create(this, "PatternNested")
                 .definition(parallelTask.next(resultTask))
