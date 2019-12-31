@@ -16,3 +16,9 @@ It is a [Maven](https://maven.apache.org/) based project, so you can open this p
  * `cdk docs`        open CDK documentation
 
 Enjoy!
+
+* `$ aws elasticbeanstalk list-platform-versions --query 'PlatformSummaryList[].PlatformArn'`
+* refs
+    * https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-environment
+    * https://docs.aws.amazon.com/cli/latest/reference/elasticbeanstalk/list-platform-versions.html
+    * https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-bg-pipeline

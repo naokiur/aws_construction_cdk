@@ -10,4 +10,6 @@ target
 # CDK asset staging directory
 .cdk.staging
 cdk.out
-
+*_env/
+.DS_Store
+*.sqlite3

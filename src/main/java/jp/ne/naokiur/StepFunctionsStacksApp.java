@@ -6,7 +6,8 @@ public class StepFunctionsStacksApp {
     public static void main(final String[] args) {
         App app = new App();
 
-        new StepFunctionsStacksStack(app, "StepFunctionsStacksStack");
+//        new StepFunctionsStacksStack(app, "StepFunctionsStacksStack");
+        new EBStack(app, "MyElasticBeanstalk");
 
         app.synth();
     }
