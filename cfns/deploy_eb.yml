@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create AWS Resource for Sample CD to ElasticBeanstalk."
+
+Resources:
+    EBDeployPipelineRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: EBDeployPipelineRole
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    -
+                        Effect: Allow
+                        Principal:
+                            Service:
+                                - codepipeline.amazonaws.com
+                        Action:
+                            - sts:AssumeRole
+            Policies:
+                - PolicyName: EBDeployPipelineRolePolicy
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Sid: S3FullAccess
+                            Effect: Allow
+                            Action:
+                                s3:*
+                            Resource:
+                                - '*'
+                          - Sid: EBFullAccess
+                            Effect: Allow
+                            Action:
+                                - elasticbeanstalk:*
+                                - cloudformation:*
+                                - autoscaling:*
+                                - elasticloadbalancing:*
+                            Resource:
+                                - '*'
+    EBDeployPipelinePipeline:
+        Type: AWS::CodePipeline::Pipeline
+        Properties:
+            Name: EBDeployPipeline
+            RoleArn: !GetAtt EBDeployPipelineRole.Arn
+            ArtifactStore:
+                Type: S3
+                Location: naokiur-deploy-bucket
+            Stages:
+                - Name: Source
+                  Actions:
+                      - Name: download-source
+                        ActionTypeId:
+                            Category: Source
+                            Owner: AWS
+                            Version: "1"
+                            Provider: S3
+                        Configuration:
+                            S3Bucket: naokiur-deploy-bucket
+                            S3ObjectKey: source.zip
+                            PollForSourceChanges: false
+                        OutputArtifacts:
+                            - Name: SourceOutput
+                - Name: Deploy
+                  Actions:
+                      - InputArtifacts:
+                            - Name: SourceOutput
+                        Name: deploy
+                        ActionTypeId:
+                            Category: Deploy
+                            Owner: AWS
+                            Version: "1"
+                            Provider: ElasticBeanstalk
+                        Configuration:
+                            ApplicationName: MyApp
+                            EnvironmentName: MySampleEnvironment
