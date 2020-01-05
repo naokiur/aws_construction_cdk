@@ -7,7 +7,8 @@ public class StepFunctionsStacksApp {
         App app = new App();
 
 //        new StepFunctionsStacksStack(app, "StepFunctionsStacksStack");
-        new EBStack(app, "MyElasticBeanstalk");
+//        new EBStack(app, "MyElasticBeanstalk");
+        new CICDStack(app, "MyCICDStalk");
 
         app.synth();
     }
