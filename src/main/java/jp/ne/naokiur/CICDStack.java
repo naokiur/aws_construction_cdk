@@ -59,7 +59,7 @@ public class CICDStack extends Stack {
                 .build();
 
         final Artifact buildArtifact = Artifact.artifact("Build");
-        final Action codeBuildAction = CodeBuildAction.Builder
+        final Action codeBuild = CodeBuildAction.Builder
                 .create()
                 .actionName("BuildSource")
                 .project(codeBuildProject)
@@ -69,7 +69,7 @@ public class CICDStack extends Stack {
 
         final StageProps build = StageProps.builder()
                 .stageName("BuildSource")
-                .actions(new ArrayList<>(Arrays.asList(codeBuildAction)))
+                .actions(new ArrayList<>(Arrays.asList(codeBuild)))
                 .build();
 
         // deploy
