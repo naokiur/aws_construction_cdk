@@ -50,12 +50,14 @@ Resources:
                       - Name: download-source
                         ActionTypeId:
                             Category: Source
-                            Owner: AWS
+                            Owner: ThirdParty
                             Version: "1"
-                            Provider: S3
+                            Provider: GitHub
                         Configuration:
-                            S3Bucket: naokiur-deploy-bucket
-                            S3ObjectKey: source.zip
+                            Owner: naokiur
+                            Repo: django_app
+                            Branch: master
+                            OAuthToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
                             PollForSourceChanges: false
                         OutputArtifacts:
                             - Name: SourceOutput
