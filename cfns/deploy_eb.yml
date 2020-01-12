@@ -21,6 +21,12 @@ Resources:
                   PolicyDocument:
                       Version: "2012-10-17"
                       Statement:
+                          - Sid: CodeBuildAccess
+                            Effect: Allow
+                            Action:
+                                codebuild:*
+                            Resource:
+                                - '*'
                           - Sid: S3FullAccess
                             Effect: Allow
                             Action:
@@ -36,7 +42,53 @@ Resources:
                                 - elasticloadbalancing:*
                             Resource:
                                 - '*'
-    EBDeployPipelinePipeline:
+    DjangoAppodeBuildRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: DjangoAppodeBuildRole
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    -
+                        Effect: Allow
+                        Principal:
+                            Service:
+                                - codebuild.amazonaws.com
+                        Action:
+                            - sts:AssumeRole
+            Policies:
+                - PolicyName: DjangoAppodeBuildRolePolicy
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Sid: S3FullAccess
+                            Effect: Allow
+                            Action:
+                                s3:*
+                            Resource:
+                                - '*'
+                          - Sid: CloudWatchLogAccess
+                            Effect: Allow
+                            Action:
+                                - logs:CreateLogGroup
+                                - logs:CreateLogStream
+                                - logs:PutLogEvents
+                            Resource:
+                                - '*'
+    DjangoAppCodeBuildProject:
+        Type: AWS::CodeBuild::Project
+        Properties:
+            Name: DjangoAppCodeBuildProject
+            Artifacts:
+                Type: CODEPIPELINE
+            ServiceRole: !GetAtt DjangoAppodeBuildRole.Arn
+            Environment:
+                Type: LINUX_CONTAINER
+                ComputeType: BUILD_GENERAL1_SMALL
+                Image: aws/codebuild/standard:2.0
+            Source:
+                Type: CODEPIPELINE
+    EBDeployPipeline:
         Type: AWS::CodePipeline::Pipeline
         Properties:
             Name: EBDeployPipeline
@@ -61,6 +113,20 @@ Resources:
                             PollForSourceChanges: false
                         OutputArtifacts:
                             - Name: SourceOutput
+                - Name: Build
+                  Actions:
+                      -   InputArtifacts:
+                              -   Name: SourceOutput
+                          Name: build
+                          ActionTypeId:
+                              Category: Build
+                              Owner: AWS
+                              Version: "1"
+                              Provider: CodeBuild
+                          Configuration:
+                              ProjectName: !Ref DjangoAppCodeBuildProject
+                          OutputArtifacts:
+                                - Name: BuildOutput
                 - Name: Deploy
                   Actions:
                       - InputArtifacts:
@@ -74,3 +140,18 @@ Resources:
                         Configuration:
                             ApplicationName: MyApp
                             EnvironmentName: MySampleEnvironment
+    EBDeployPipelineWebhook:
+        Type: AWS::CodePipeline::Webhook
+        Properties:
+            Authentication: GITHUB_HMAC
+            AuthenticationConfiguration:
+                SecretToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
+            Filters:
+                -
+                    JsonPath: "$.ref"
+                    MatchEquals: refs/heads/{Branch}
+            TargetPipeline: !Ref EBDeployPipeline
+            TargetAction: download-source
+            Name: EBDeployPipelineWebhook
+            TargetPipelineVersion: !GetAtt EBDeployPipeline.Version
+            RegisterWithThirdParty: true
