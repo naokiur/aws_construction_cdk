@@ -33,6 +33,12 @@ Resources:
                                 s3:*
                             Resource:
                                 - '*'
+                          - Sid: SNSFullAccess
+                            Effect: Allow
+                            Action:
+                                sns:*
+                            Resource:
+                                - '*'
                           - Sid: EBFullAccess
                             Effect: Allow
                             Action:
@@ -75,6 +81,12 @@ Resources:
                                 - logs:PutLogEvents
                             Resource:
                                 - '*'
+    ManualApprovalSNSTopic:
+        Type: AWS::SNS::Topic
+        Properties:
+            Subscription:
+                - Endpoint: sample@mail
+                  Protocol: email
     DjangoAppCodeBuildProject:
         Type: AWS::CodeBuild::Project
         Properties:
@@ -127,6 +139,17 @@ Resources:
                             ProjectName: !Ref DjangoAppCodeBuildProject
                         OutputArtifacts:
                               - Name: BuildOutput
+                - Name: ManualApproval
+                  Actions:
+                      - Name: approval
+                        ActionTypeId:
+                            Category: Approval
+                            Owner: AWS
+                            Provider: Manual
+                            Version: 1
+                        Configuration:
+                            NotificationArn: !Ref ManualApprovalSNSTopic
+                        RunOrder: 1
                 - Name: Deploy
                   Actions:
                       - InputArtifacts:
