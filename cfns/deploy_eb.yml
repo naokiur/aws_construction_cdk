@@ -115,18 +115,18 @@ Resources:
                             - Name: SourceOutput
                 - Name: Build
                   Actions:
-                      -   InputArtifacts:
-                              -   Name: SourceOutput
-                          Name: build
-                          ActionTypeId:
-                              Category: Build
-                              Owner: AWS
-                              Version: "1"
-                              Provider: CodeBuild
-                          Configuration:
-                              ProjectName: !Ref DjangoAppCodeBuildProject
-                          OutputArtifacts:
-                                - Name: BuildOutput
+                      - InputArtifacts:
+                            - Name: SourceOutput
+                        Name: build
+                        ActionTypeId:
+                            Category: Build
+                            Owner: AWS
+                            Version: "1"
+                            Provider: CodeBuild
+                        Configuration:
+                            ProjectName: !Ref DjangoAppCodeBuildProject
+                        OutputArtifacts:
+                              - Name: BuildOutput
                 - Name: Deploy
                   Actions:
                       - InputArtifacts:
