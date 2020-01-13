@@ -81,100 +81,141 @@ Resources:
                                 - logs:PutLogEvents
                             Resource:
                                 - '*'
-    ManualApprovalSNSTopic:
-        Type: AWS::SNS::Topic
+#    ManualApprovalSNSTopic:
+#        Type: AWS::SNS::Topic
+#        Properties:
+#            Subscription:
+#                - Endpoint: sample@mail
+#                  Protocol: email
+#    DjangoAppCodeBuildProject:
+#        Type: AWS::CodeBuild::Project
+#        Properties:
+#            Name: DjangoAppCodeBuildProject
+#            Artifacts:
+#                Type: CODEPIPELINE
+#            ServiceRole: !GetAtt DjangoAppodeBuildRole.Arn
+#            Environment:
+#                Type: LINUX_CONTAINER
+#                ComputeType: BUILD_GENERAL1_SMALL
+#                Image: aws/codebuild/standard:2.0
+#            Source:
+#                Type: CODEPIPELINE
+#    EBDeployPipeline:
+#        Type: AWS::CodePipeline::Pipeline
+#        Properties:
+#            Name: EBDeployPipeline
+#            RoleArn: !GetAtt EBDeployPipelineRole.Arn
+#            ArtifactStore:
+#                Type: S3
+#                Location: naokiur-deploy-bucket
+#            Stages:
+#                - Name: Source
+#                  Actions:
+#                      - Name: download-source
+#                        ActionTypeId:
+#                            Category: Source
+#                            Owner: ThirdParty
+#                            Version: "1"
+#                            Provider: GitHub
+#                        Configuration:
+#                            Owner: naokiur
+#                            Repo: django_app
+#                            Branch: master
+#                            OAuthToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
+#                            PollForSourceChanges: false
+#                        OutputArtifacts:
+#                            - Name: SourceOutput
+#                - Name: Build
+#                  Actions:
+#                      - InputArtifacts:
+#                            - Name: SourceOutput
+#                        Name: build
+#                        ActionTypeId:
+#                            Category: Build
+#                            Owner: AWS
+#                            Version: "1"
+#                            Provider: CodeBuild
+#                        Configuration:
+#                            ProjectName: !Ref DjangoAppCodeBuildProject
+#                        OutputArtifacts:
+#                              - Name: BuildOutput
+#                - Name: ManualApproval
+#                  Actions:
+#                      - Name: approval
+#                        ActionTypeId:
+#                            Category: Approval
+#                            Owner: AWS
+#                            Provider: Manual
+#                            Version: 1
+#                        Configuration:
+#                            NotificationArn: !Ref ManualApprovalSNSTopic
+#                        RunOrder: 1
+#                - Name: Deploy
+#                  Actions:
+#                      - InputArtifacts:
+#                            - Name: SourceOutput
+#                        Name: deploy
+#                        ActionTypeId:
+#                            Category: Deploy
+#                            Owner: AWS
+#                            Version: "1"
+#                            Provider: ElasticBeanstalk
+#                        Configuration:
+#                            ApplicationName: MyApp
+#                            EnvironmentName: MySampleEnvironment
+    BuildBucket:
+        Type: AWS::S3::Bucket
         Properties:
-            Subscription:
-                - Endpoint: sample@mail
-                  Protocol: email
-    DjangoAppCodeBuildProject:
+            BucketName: !Sub "naokiur-build-bucket-${AWS::AccountId}"
+            VersioningConfiguration:
+                Status: Enabled
+    EBBuildGithubCredential:
+        Type: AWS::CodeBuild::SourceCredential
+        Properties:
+            AuthType: PERSONAL_ACCESS_TOKEN
+            ServerType: GITHUB
+            Token: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
+    DjangoAppEBBuild:
         Type: AWS::CodeBuild::Project
         Properties:
-            Name: DjangoAppCodeBuildProject
-            Artifacts:
-                Type: CODEPIPELINE
+            Name: django-app-build-project
+            Source:
+                Auth:
+                    Type: OAUTH
+                BuildSpec: buildspec.yml
+                GitCloneDepth: 1
+                Location: https://github.com/naokiur/django_app.git
+                Type: GITHUB
             ServiceRole: !GetAtt DjangoAppodeBuildRole.Arn
             Environment:
                 Type: LINUX_CONTAINER
                 ComputeType: BUILD_GENERAL1_SMALL
                 Image: aws/codebuild/standard:2.0
-            Source:
-                Type: CODEPIPELINE
-    EBDeployPipeline:
-        Type: AWS::CodePipeline::Pipeline
-        Properties:
-            Name: EBDeployPipeline
-            RoleArn: !GetAtt EBDeployPipelineRole.Arn
-            ArtifactStore:
+            Artifacts:
                 Type: S3
-                Location: naokiur-deploy-bucket
-            Stages:
-                - Name: Source
-                  Actions:
-                      - Name: download-source
-                        ActionTypeId:
-                            Category: Source
-                            Owner: ThirdParty
-                            Version: "1"
-                            Provider: GitHub
-                        Configuration:
-                            Owner: naokiur
-                            Repo: django_app
-                            Branch: master
-                            OAuthToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
-                            PollForSourceChanges: false
-                        OutputArtifacts:
-                            - Name: SourceOutput
-                - Name: Build
-                  Actions:
-                      - InputArtifacts:
-                            - Name: SourceOutput
-                        Name: build
-                        ActionTypeId:
-                            Category: Build
-                            Owner: AWS
-                            Version: "1"
-                            Provider: CodeBuild
-                        Configuration:
-                            ProjectName: !Ref DjangoAppCodeBuildProject
-                        OutputArtifacts:
-                              - Name: BuildOutput
-                - Name: ManualApproval
-                  Actions:
-                      - Name: approval
-                        ActionTypeId:
-                            Category: Approval
-                            Owner: AWS
-                            Provider: Manual
-                            Version: 1
-                        Configuration:
-                            NotificationArn: !Ref ManualApprovalSNSTopic
-                        RunOrder: 1
-                - Name: Deploy
-                  Actions:
-                      - InputArtifacts:
-                            - Name: SourceOutput
-                        Name: deploy
-                        ActionTypeId:
-                            Category: Deploy
-                            Owner: AWS
-                            Version: "1"
-                            Provider: ElasticBeanstalk
-                        Configuration:
-                            ApplicationName: MyApp
-                            EnvironmentName: MySampleEnvironment
-    EBDeployPipelineWebhook:
-        Type: AWS::CodePipeline::Webhook
-        Properties:
-            Authentication: GITHUB_HMAC
-            AuthenticationConfiguration:
-                SecretToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
-            Filters:
-                -
-                    JsonPath: "$.ref"
-                    MatchEquals: refs/heads/{Branch}
-            TargetPipeline: !Ref EBDeployPipeline
-            TargetAction: download-source
-            Name: EBDeployPipelineWebhook
-            TargetPipelineVersion: !GetAtt EBDeployPipeline.Version
-            RegisterWithThirdParty: true
+                Location: !Ref BuildBucket
+                Name: source.zip
+                Packaging: ZIP
+            Triggers:
+                FilterGroups:
+                    - - Type: EVENT
+                        Pattern: PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PUSH
+                      - Pattern: refs/heads/master
+                        Type: HEAD_REF
+                Webhook: true
+
+#    EBDeployPipelineWebhook:
+#        Type: AWS::CodePipeline::Webhook
+#        Properties:
+#            Authentication: GITHUB_HMAC
+#            AuthenticationConfiguration:
+#                SecretToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
+#            Filters:
+#                -
+#                    JsonPath: "$.ref"
+#                    MatchEquals: refs/heads/{Branch}
+#            TargetPipeline: !Ref EBDeployPipeline
+#            TargetAction: download-source
+#            Name: EBDeployPipelineWebhook
+#            TargetPipelineVersion: !GetAtt EBDeployPipeline.Version
+#            RegisterWithThirdParty: true
