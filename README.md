@@ -1,4 +1,7 @@
-# Welcome to your CDK Java project!
+# Welcome to my CDK Java project! and CloudFormation.
+
+## Prepare
+* Need github access token in AWS secret manager.
 
 This is a blank project for Java development with CDK.
 
@@ -8,6 +11,7 @@ It is a [Maven](https://maven.apache.org/) based project, so you can open this p
 
 ## Useful commands
 
+### AWS CDK
  * `mvn package`     compile and run tests
  * `cdk ls`          list all stacks in the app
  * `cdk synth`       emits the synthesized CloudFormation template
@@ -15,10 +19,17 @@ It is a [Maven](https://maven.apache.org/) based project, so you can open this p
  * `cdk diff`        compare deployed stack with current state
  * `cdk docs`        open CDK documentation
 
-Enjoy!
-
+### ElasticBeanstalk
 * `$ aws elasticbeanstalk list-platform-versions --query 'PlatformSummaryList[].PlatformArn'`
-* refs
-    * https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-environment
-    * https://docs.aws.amazon.com/cli/latest/reference/elasticbeanstalk/list-platform-versions.html
-    * https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-bg-pipeline
+
+### CloudFormation
+* `aws cloudformation delete-stack --stack-name django-app-not-cd-eb-deploy-stack`
+* `aws cloudformation create-stack --stack-name django-app-not-cd-eb-deploy-stack --template-body file://deploy_eb.yml --capabilities CAPABILITY_NAMED_IAM`
+* `aws cloudformation create-change-set --template-body file://deploy_eb.yml --stack-name django-app-not-cd-eb-deploy-stack --change-set-name django-app-not-cd-eb-deploy-stack-$(date "+%Y%m%d-%H%M%S") --capabilities CAPABILITY_NAMED_IAM`
+* `aws cloudformation execute-change-set --change-set-name`
+
+## refs
+### AWS CDK
+* https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-environment
+* https://docs.aws.amazon.com/cli/latest/reference/elasticbeanstalk/list-platform-versions.html
+* https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-bg-pipeline
