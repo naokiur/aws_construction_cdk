@@ -33,3 +33,10 @@ It is a [Maven](https://maven.apache.org/) based project, so you can open this p
 * https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-environment
 * https://docs.aws.amazon.com/cli/latest/reference/elasticbeanstalk/list-platform-versions.html
 * https://github.com/aws-samples/aws-cdk-examples/tree/master/typescript/elasticbeanstalk/elasticbeanstalk-bg-pipeline
+
+### AWS CloudFormation
+* https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html
+* https://docs.amazonaws.cn/en_us/codebuild/latest/userguide/sample-bitbucket-pull-request.html#sample-bitbucket-pull-request-filter-webhook-events-cfn
+* https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-pipeline.html
+* https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-versioningconfig.html
+* https://github.com/aws-quickstart/quickstart-codepipeline-bluegreen-deployment/tree/master/templates
