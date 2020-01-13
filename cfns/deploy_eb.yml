@@ -2,56 +2,17 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "Create AWS Resource for Sample CD to ElasticBeanstalk."
 
 Resources:
-    EBDeployPipelineRole:
+    # First: Build Source and Zip, Save to S3(Build Bucket).
+    ## This Need
+    ##     * S3 Bucket for after Build.
+    ##         * This Bucket need versioning for deploy to ElasticBeanstalk.
+    ##     * CodeBuild Project
+    ##     * GithubCredential for CodeBuild Project
+    ##     * IAM Role for CodeBuild Project
+    DjangoBuildRole:
         Type: AWS::IAM::Role
         Properties:
-            RoleName: EBDeployPipelineRole
-            AssumeRolePolicyDocument:
-                Version: "2012-10-17"
-                Statement:
-                    -
-                        Effect: Allow
-                        Principal:
-                            Service:
-                                - codepipeline.amazonaws.com
-                        Action:
-                            - sts:AssumeRole
-            Policies:
-                - PolicyName: EBDeployPipelineRolePolicy
-                  PolicyDocument:
-                      Version: "2012-10-17"
-                      Statement:
-                          - Sid: CodeBuildAccess
-                            Effect: Allow
-                            Action:
-                                codebuild:*
-                            Resource:
-                                - '*'
-                          - Sid: S3FullAccess
-                            Effect: Allow
-                            Action:
-                                s3:*
-                            Resource:
-                                - '*'
-                          - Sid: SNSFullAccess
-                            Effect: Allow
-                            Action:
-                                sns:*
-                            Resource:
-                                - '*'
-                          - Sid: EBFullAccess
-                            Effect: Allow
-                            Action:
-                                - elasticbeanstalk:*
-                                - cloudformation:*
-                                - autoscaling:*
-                                - elasticloadbalancing:*
-                            Resource:
-                                - '*'
-    DjangoAppodeBuildRole:
-        Type: AWS::IAM::Role
-        Properties:
-            RoleName: DjangoAppodeBuildRole
+            RoleName: DjangoBuildRole
             AssumeRolePolicyDocument:
                 Version: "2012-10-17"
                 Statement:
@@ -63,7 +24,7 @@ Resources:
                         Action:
                             - sts:AssumeRole
             Policies:
-                - PolicyName: DjangoAppodeBuildRolePolicy
+                - PolicyName: DjangoBuildRoleRolePolicy
                   PolicyDocument:
                       Version: "2012-10-17"
                       Statement:
@@ -81,92 +42,10 @@ Resources:
                                 - logs:PutLogEvents
                             Resource:
                                 - '*'
-#    ManualApprovalSNSTopic:
-#        Type: AWS::SNS::Topic
-#        Properties:
-#            Subscription:
-#                - Endpoint: sample@mail
-#                  Protocol: email
-#    DjangoAppCodeBuildProject:
-#        Type: AWS::CodeBuild::Project
-#        Properties:
-#            Name: DjangoAppCodeBuildProject
-#            Artifacts:
-#                Type: CODEPIPELINE
-#            ServiceRole: !GetAtt DjangoAppodeBuildRole.Arn
-#            Environment:
-#                Type: LINUX_CONTAINER
-#                ComputeType: BUILD_GENERAL1_SMALL
-#                Image: aws/codebuild/standard:2.0
-#            Source:
-#                Type: CODEPIPELINE
-#    EBDeployPipeline:
-#        Type: AWS::CodePipeline::Pipeline
-#        Properties:
-#            Name: EBDeployPipeline
-#            RoleArn: !GetAtt EBDeployPipelineRole.Arn
-#            ArtifactStore:
-#                Type: S3
-#                Location: naokiur-deploy-bucket
-#            Stages:
-#                - Name: Source
-#                  Actions:
-#                      - Name: download-source
-#                        ActionTypeId:
-#                            Category: Source
-#                            Owner: ThirdParty
-#                            Version: "1"
-#                            Provider: GitHub
-#                        Configuration:
-#                            Owner: naokiur
-#                            Repo: django_app
-#                            Branch: master
-#                            OAuthToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
-#                            PollForSourceChanges: false
-#                        OutputArtifacts:
-#                            - Name: SourceOutput
-#                - Name: Build
-#                  Actions:
-#                      - InputArtifacts:
-#                            - Name: SourceOutput
-#                        Name: build
-#                        ActionTypeId:
-#                            Category: Build
-#                            Owner: AWS
-#                            Version: "1"
-#                            Provider: CodeBuild
-#                        Configuration:
-#                            ProjectName: !Ref DjangoAppCodeBuildProject
-#                        OutputArtifacts:
-#                              - Name: BuildOutput
-#                - Name: ManualApproval
-#                  Actions:
-#                      - Name: approval
-#                        ActionTypeId:
-#                            Category: Approval
-#                            Owner: AWS
-#                            Provider: Manual
-#                            Version: 1
-#                        Configuration:
-#                            NotificationArn: !Ref ManualApprovalSNSTopic
-#                        RunOrder: 1
-#                - Name: Deploy
-#                  Actions:
-#                      - InputArtifacts:
-#                            - Name: SourceOutput
-#                        Name: deploy
-#                        ActionTypeId:
-#                            Category: Deploy
-#                            Owner: AWS
-#                            Version: "1"
-#                            Provider: ElasticBeanstalk
-#                        Configuration:
-#                            ApplicationName: MyApp
-#                            EnvironmentName: MySampleEnvironment
-    BuildBucket:
+    SysopsBucket:
         Type: AWS::S3::Bucket
         Properties:
-            BucketName: !Sub "naokiur-build-bucket-${AWS::AccountId}"
+            BucketName: !Sub "naokiur-sysops-bucket-${AWS::AccountId}"
             VersioningConfiguration:
                 Status: Enabled
     EBBuildGithubCredential:
@@ -186,15 +65,16 @@ Resources:
                 GitCloneDepth: 1
                 Location: https://github.com/naokiur/django_app.git
                 Type: GITHUB
-            ServiceRole: !GetAtt DjangoAppodeBuildRole.Arn
+            ServiceRole: !GetAtt DjangoBuildRole.Arn
             Environment:
                 Type: LINUX_CONTAINER
                 ComputeType: BUILD_GENERAL1_SMALL
                 Image: aws/codebuild/standard:2.0
             Artifacts:
                 Type: S3
-                Location: !Ref BuildBucket
-                Name: source.zip
+                Location: !Ref SysopsBucket
+                Path: /builds
+                Name: django_app.zip
                 Packaging: ZIP
             Triggers:
                 FilterGroups:
@@ -204,18 +84,85 @@ Resources:
                         Type: HEAD_REF
                 Webhook: true
 
-#    EBDeployPipelineWebhook:
-#        Type: AWS::CodePipeline::Webhook
-#        Properties:
-#            Authentication: GITHUB_HMAC
-#            AuthenticationConfiguration:
-#                SecretToken: '{{resolve:secretsmanager:personal-secrets:SecretString:github-access-token}}'
-#            Filters:
-#                -
-#                    JsonPath: "$.ref"
-#                    MatchEquals: refs/heads/{Branch}
-#            TargetPipeline: !Ref EBDeployPipeline
-#            TargetAction: download-source
-#            Name: EBDeployPipelineWebhook
-#            TargetPipelineVersion: !GetAtt EBDeployPipeline.Version
-#            RegisterWithThirdParty: true
+    # Second: Download Source Zip from S3, Deploy to ElasticBeanstalk.
+    ## This Need
+    ##     * S3 Bucket
+    ##         * This Bucket is not same with 'First'. It is no need versioning.
+    ##     * CodePipeline
+    ##     * IAM Role for CodePipeline
+    CodepipelineBucket:
+        Type: AWS::S3::Bucket
+        Properties:
+            BucketName: !Sub "naokiur-codepipeline-bucket-${AWS::AccountId}"
+            VersioningConfiguration:
+                Status: Enabled
+    EBDeployPipelineRole:
+        Type: AWS::IAM::Role
+        Properties:
+            RoleName: EBDeployPipelineRole
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                    -
+                        Effect: Allow
+                        Principal:
+                            Service:
+                                - codepipeline.amazonaws.com
+                        Action:
+                            - sts:AssumeRole
+            Policies:
+                - PolicyName: EBDeployPipelineRolePolicy
+                  PolicyDocument:
+                      Version: "2012-10-17"
+                      Statement:
+                          - Sid: S3FullAccess
+                            Effect: Allow
+                            Action:
+                                s3:*
+                            Resource:
+                                - '*'
+                          - Sid: EBFullAccess
+                            Effect: Allow
+                            Action:
+                                - elasticbeanstalk:*
+                                - cloudformation:*
+                                - autoscaling:*
+                                - elasticloadbalancing:*
+                            Resource:
+                                - '*'
+    EBDeployPipeline:
+        Type: AWS::CodePipeline::Pipeline
+        Properties:
+            Name: EBDeployPipeline
+            RoleArn: !GetAtt EBDeployPipelineRole.Arn
+            ArtifactStore:
+                Type: S3
+                Location: !Ref CodepipelineBucket
+            Stages:
+                - Name: Source
+                  Actions:
+                      - Name: download-source
+                        ActionTypeId:
+                            Category: Source
+                            Owner: AWS
+                            Version: "1"
+                            Provider: S3
+                        Configuration:
+                            S3Bucket: !Ref SysopsBucket
+                            S3ObjectKey: builds/django_app.zip
+                            PollForSourceChanges: false
+                        OutputArtifacts:
+                            - Name: SourceOutput
+                - Name: Deploy
+                  Actions:
+                      - InputArtifacts:
+                            - Name: SourceOutput
+                        Name: deploy
+                        ActionTypeId:
+                            Category: Deploy
+                            Owner: AWS
+                            Version: "1"
+                            Provider: ElasticBeanstalk
+                        Configuration:
+                            ApplicationName: MyApp
+                            EnvironmentName: MySampleEnvironment
